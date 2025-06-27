@@ -10,3 +10,5 @@ val lowPriority = Color(0xFFF4E8C1)
 val mediumPriority = Color(0xFFFFC107)
 val highPriority = primaryColor
 val urgentPriority = Color(0xFFD50000)
+
+val notificationCardColor = Color(0xFFE3F2FD)

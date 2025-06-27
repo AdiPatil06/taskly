@@ -23,10 +23,10 @@ class SharedViewModel : ViewModel() {
         getNotificationPermission()
     }
 
-    private fun getShowSplashScreen(){
+    private fun getShowSplashScreen() {
         viewModelScope.launch {
             app.datastore.getShowSplashScreen().collectLatest {
-                if(it != null) {
+                if (it != null) {
                     showSplashScreen.value = it
                 } else showSplashScreen.value = true
             }
@@ -46,7 +46,7 @@ class SharedViewModel : ViewModel() {
         }
     }
 
-    fun getNotificationPermission() : Boolean {
+    fun getNotificationPermission(): Boolean {
         viewModelScope.launch {
             return@launch app.datastore.getNotificationPermission().collect()
         }

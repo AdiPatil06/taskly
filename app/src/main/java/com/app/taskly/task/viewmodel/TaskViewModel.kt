@@ -1,30 +1,39 @@
 package com.app.taskly.task.viewmodel
 
 import android.util.Log
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.app.taskly.integrations.MyFirebaseMessagingService
+import com.app.taskly.task.data.local.entity.NotificationEntity
 import com.app.taskly.task.data.local.entity.Task
 import com.app.taskly.task.data.local.enums.Priority
 import com.app.taskly.task.data.local.enums.TaskStatus
+import com.app.taskly.task.data.repository.NotificationRepository
 import com.app.taskly.task.data.repository.TaskRepository
 import com.google.firebase.Firebase
 import com.google.firebase.firestore.firestore
-import com.google.firebase.messaging.RemoteMessage
-import com.google.firebase.messaging.messaging
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.util.Locale
 
-class TaskViewModel(private val repository: TaskRepository) : ViewModel() {
+class TaskViewModel(
+    private val taskRepository: TaskRepository,
+    private val notificationsRepository: NotificationRepository
+) : ViewModel() {
 
     private val TAG = "taskViewModel"
 
-    val allTasks: Flow<List<Task>> = repository.allTasks
+    val allTasks: Flow<List<Task>> = taskRepository.allTasks
+
+    private val pendingDeleteQueue = MutableStateFlow<List<NotificationEntity>>(emptyList())
 
     var simpleTaskName = mutableStateOf("")
     var simpleTaskDate = mutableStateOf("")
@@ -36,6 +45,38 @@ class TaskViewModel(private val repository: TaskRepository) : ViewModel() {
     var recurringTaskEndDate = mutableStateOf("")
     var recurringTaskTime = mutableStateOf("")
     val recurringTaskPriority = mutableStateOf(Priority.Low)
+
+    private val _pendingDeleteQueue = MutableStateFlow<List<NotificationEntity>>(emptyList())
+
+    private val _visibleNotifications = MutableStateFlow<List<NotificationEntity>>(emptyList())
+    val allNotifications: StateFlow<List<NotificationEntity>> = _visibleNotifications
+
+    var countOfNotifications = mutableIntStateOf(0)
+
+    init {
+        // Collect original notifications and filter out the pending ones
+        viewModelScope.launch {
+            notificationsRepository.allNotifications.collect { dbList ->
+                val filtered = dbList.filterNot { dbItem ->
+                    _pendingDeleteQueue.value.any { it.id == dbItem.id }
+                }
+                _visibleNotifications.value = filtered
+                countOfNotifications.intValue = _visibleNotifications.value.size
+            }
+        }
+
+        // Background deletion processor
+        viewModelScope.launch {
+            _pendingDeleteQueue.collect { queue ->
+                if (queue.isNotEmpty()) {
+                    val toDelete = queue.first()
+                    notificationsRepository.deleteNotification(toDelete)
+                    delay(200) // optional for smooth batching
+                    _pendingDeleteQueue.value = queue.drop(1)
+                }
+            }
+        }
+    }
 
     private fun initValues() {
         simpleTaskName.value = ""
@@ -51,7 +92,7 @@ class TaskViewModel(private val repository: TaskRepository) : ViewModel() {
     }
 
     fun addTask(task: Task) = viewModelScope.launch {
-        repository.addTask(task)
+        taskRepository.addTask(task)
         initValues()
         saveTaskToFirebase(task)
     }
@@ -96,20 +137,19 @@ class TaskViewModel(private val repository: TaskRepository) : ViewModel() {
         }
     }
 
-
     fun updateTask(task: Task, taskStatus: TaskStatus) = viewModelScope.launch {
-        repository.updateTask(task.copy(status = taskStatus))
-        if(taskStatus == TaskStatus.Completed) {
+        taskRepository.updateTask(task.copy(status = taskStatus))
+        if (taskStatus == TaskStatus.Completed) {
             sendTaskCompletionNotification(task.title)
         }
     }
 
     fun deleteTask(task: Task) = viewModelScope.launch {
-        repository.deleteTask(task)
+        taskRepository.deleteTask(task)
     }
 
     fun deleteAllTasks() = viewModelScope.launch {
-        repository.deleteAllTasks()
+        taskRepository.deleteAllTasks()
     }
 
     fun checkForSimpleTask(): Boolean {
@@ -125,5 +165,11 @@ class TaskViewModel(private val repository: TaskRepository) : ViewModel() {
             title = "Task Completed",
             message = "You completed: $taskTitle"
         )
+    }
+
+    fun requestDelete(notification: NotificationEntity) {
+        if (_pendingDeleteQueue.value.none { it.id == notification.id }) {
+            _pendingDeleteQueue.value = _pendingDeleteQueue.value + notification
+        }
     }
 }

@@ -1,6 +1,5 @@
 package com.app.taskly.task.ui.screen
 
-import android.app.Activity
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -77,7 +76,6 @@ import com.app.taskly.task.di.app
 import com.app.taskly.task.ui.theme.hostFontFamilyBold
 import com.app.taskly.task.viewmodel.TaskViewModel
 import com.app.taskly.utils.DatePicker
-import com.app.taskly.utils.SetStatusBarColor
 import com.app.taskly.utils.TimePicker
 import com.app.taskly.utils.getColorBasedOnPriority
 import com.app.taskly.utils.getScreenWidth
@@ -176,18 +174,36 @@ fun MainScreen(viewModel: TaskViewModel, onClick: (String) -> Unit) {
                                     .clickable { onClick("calender") }
                             )
                         }
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.tertiary),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Image(
-                                painter = painterResource(R.drawable.icon_notification),
-                                contentDescription = null,
-                                modifier = Modifier.size(25.dp)
-                            )
+                        Box(contentAlignment = Alignment.TopEnd) {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.tertiary),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Image(
+                                    painter = painterResource(R.drawable.icon_notification),
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .size(25.dp)
+                                        .clickable { onClick("notification") }
+                                )
+                            }
+                            if (viewModel.countOfNotifications.intValue > 0) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.tertiary),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        viewModel.countOfNotifications.intValue.toString(),
+                                        color = Color.Black
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -339,7 +355,10 @@ fun MainScreen(viewModel: TaskViewModel, onClick: (String) -> Unit) {
                                             )
                                             .background(Color.Transparent)
                                             .clickable {
-                                                viewModel.updateTask(task = it, TaskStatus.Completed)
+                                                viewModel.updateTask(
+                                                    task = it,
+                                                    TaskStatus.Completed
+                                                )
                                             }
                                     )
                                     Column(verticalArrangement = Arrangement.Center) {
@@ -491,7 +510,7 @@ fun MainScreen(viewModel: TaskViewModel, onClick: (String) -> Unit) {
         }
     }
 
-    if(recurringTaskSheet) {
+    if (recurringTaskSheet) {
         RecurringTaskSheet(viewModel) {
             recurringTaskSheet = false
         }
@@ -609,7 +628,7 @@ fun FloatingActionMenu(onClick: (String) -> Unit) {
                     val alpha = remember { Animatable(0f) }
                     val translationY = remember { Animatable(100f) }
                     val scale = remember { Animatable(0f) }
-                    val text = when(pair.second) {
+                    val text = when (pair.second) {
                         app.constants.simpleTaskId -> "Simple Task"
                         app.constants.recurringTaskId -> "Recurring Task"
                         else -> "Simple Task"

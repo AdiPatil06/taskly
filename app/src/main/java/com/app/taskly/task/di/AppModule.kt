@@ -4,8 +4,10 @@ import android.app.Application
 import com.app.taskly.shared.Datastore
 import com.app.taskly.shared.SharedViewModel
 import com.app.taskly.task.data.local.constants.Constants
+import com.app.taskly.task.data.local.dao.NotificationDao
 import com.app.taskly.task.data.local.dao.TaskDao
 import com.app.taskly.task.data.local.database.TaskDatabase
+import com.app.taskly.task.data.repository.NotificationRepository
 import com.app.taskly.task.data.repository.TaskRepository
 
 lateinit var app: AppModule
@@ -15,6 +17,8 @@ class AppModule : Application() {
     lateinit var taskDatabase: TaskDatabase
     lateinit var taskDao: TaskDao
     lateinit var taskRepository: TaskRepository
+    lateinit var notificationDao: NotificationDao
+    lateinit var notificationRepository: NotificationRepository
 
     val constants = Constants()
 
@@ -30,9 +34,12 @@ class AppModule : Application() {
         super.onCreate()
         app = this
 
-        taskDatabase = TaskDatabase.getDatabase()
+        taskDatabase = TaskDatabase.getTaskDatabase()
 
         taskDao = taskDatabase.taskDao()
         taskRepository = TaskRepository(taskDao)
+
+        notificationDao = taskDatabase.notificationDao()
+        notificationRepository = NotificationRepository(notificationDao)
     }
 }
